@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from passlib.context import CryptContext
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 from sqlalchemy import (
     create_engine, Column, Integer, String, Float, DateTime, ForeignKey
 )
@@ -39,6 +39,18 @@ Base = declarative_base()
 
 app = FastAPI()
 BASE_DIR = Path(__file__).resolve().parent
+
+import traceback
+
+@app.middleware("http")
+async def log_exceptions(request, call_next):
+    try:
+        return await call_next(request)
+    except Exception:
+        print("=== ERRO NA REQUISIÇÃO ===")
+        print("URL:", request.url)
+        traceback.print_exc()
+        raise
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
@@ -197,7 +209,29 @@ def require_auth(request: Request, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail="Sessão inválida.")
     return user
+from starlette.responses import RedirectResponse
 
+def require_auth_or_redirect(request: Request, db: Session = Depends(get_db)):
+    user_id = request.cookies.get("user_id")
+    store_id = request.cookies.get("store_id")
+
+    # Sem sessão -> manda pro login
+    if not user_id or not store_id:
+        return RedirectResponse(url="/login", status_code=302)
+
+    user = db.query(User).filter(
+        User.id == int(user_id),
+        User.store_id == int(store_id)
+    ).first()
+
+    # Sessão inválida -> manda pro login e limpa cookies
+    if not user:
+        resp = RedirectResponse(url="/login", status_code=302)
+        resp.delete_cookie("user_id")
+        resp.delete_cookie("store_id")
+        return resp
+
+    return user
 def today_range():
     start = datetime.combine(date.today(), datetime.min.time())
     end = datetime.combine(date.today(), datetime.max.time())
@@ -285,16 +319,14 @@ def admin_list_users(db: Session = Depends(get_db)):
         for u in users:
             lines.append(f"  USER {u.id} | {u.username} | {u.role}")
     return "\n".join(lines) + "\n"
-@app.get("/", response_class=HTMLResponse)
-def home(request: Request):
-    # Se já tiver cookie, manda pro dashboard
-    if request.cookies.get("user_id"):
-        return RedirectResponse("/dashboard", status_code=302)
+
+@app.get("/", include_in_schema=False)
+def home():
     return RedirectResponse("/login", status_code=302)
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse("login.html", {"request": request, "user": None})
 
 @app.post("/login")
 def do_login(
@@ -382,7 +414,7 @@ def build_stats(db: Session, store_id: int):
 # PRODUCTS
 # ======================
 @app.get("/products", response_class=HTMLResponse)
-def products_page(request: Request, user: User = Depends(require_auth), db: Session = Depends(get_db)):
+def products_page(request: Request, user: user=Depends(require_auth_or_redirect), db: Session = Depends(get_db)):
     products = db.query(Product).filter(Product.store_id == user.store_id).order_by(Product.id.desc()).all()
     return templates.TemplateResponse("products.html", {"request": request, "user": user, "products": products})
 

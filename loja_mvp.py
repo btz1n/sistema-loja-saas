@@ -19,7 +19,7 @@ SECRET = secrets.token_hex(32)
 import os
 from sqlalchemy import create_engine
 
-DATABASE_URL = os.environ.get("postgresql://sistema_db_7vog_user:28B1Qx01PmDVkB0wFf2VoZbV2aQWX8eF@dpg-d6dpni7fte5s73diskd0-a.oregon-postgres.render.com/sistema_db_7vog")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)

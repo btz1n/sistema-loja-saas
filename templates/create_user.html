@@ -1,26 +1,23 @@
 {% extends "base.html" %}
-{% block content %}
-<div class="card">
-  <h1 style="margin:0 0 6px 0;">Criar usuário</h1>
-  <div class="muted" style="margin-bottom:12px;">Cria um admin para uma loja existente.</div>
 
-  <form method="post" action="/admin/create_user">
-    <label>Nome da loja</label>
-    <input class="input" name="store_name" required>
+{% block public %}
+<h2 class="h2">Criar Usuário (Admin)</h2>
+<p class="muted">Cria um usuário para uma loja existente.</p>
 
-    <div style="margin-top:10px;">
-      <label>Usuário</label>
-      <input class="input" name="username" required>
-    </div>
+<form method="post" action="/admin/create_user" class="form">
+  <label class="label">Nome da Loja</label>
+  <input class="input" name="store_name" required>
 
-    <div style="margin-top:10px;">
-      <label>Senha</label>
-      <input class="input" name="password" type="password" required>
-    </div>
+  <label class="label">Usuário</label>
+  <input class="input" name="username" required>
 
-    <div style="margin-top:12px;">
-      <button class="btn primary full" type="submit">Criar usuário</button>
-    </div>
-  </form>
-</div>
+  <label class="label">Senha</label>
+  <input class="input" name="password" type="password" required>
+
+  <button class="btn primary full" type="submit">Criar usuário</button>
+
+  <div class="links">
+    <a href="/login">Voltar para login</a>
+  </div>
+</form>
 {% endblock %}

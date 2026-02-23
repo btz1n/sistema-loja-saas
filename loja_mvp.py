@@ -249,9 +249,9 @@ def hash_password(plain_password: str) -> str:
     return pwd_context.hash(plain_password)
 
 
-def set_session_cookies(resp: RedirectResponse, user: User):
-    # Render é HTTPS
-    is_https = True
+def set_session_cookies(resp, user, request)
+    xf_proto = request.headers.get("x-forwarded-proto", "")
+    is_https = (request.url.scheme == "https") or (xf_proto == "https")
 
     resp.set_cookie("user_id", str(user.id), httponly=True, samesite="lax", secure=is_https, max_age=60*60*24*30)
     resp.set_cookie("store_id", str(user.store_id), httponly=True, samesite="lax", secure=is_https, max_age=60*60*24*30)

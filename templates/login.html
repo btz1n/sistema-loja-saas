@@ -1,37 +1,25 @@
 {% extends "base.html" %}
-{% block content %}
-<div class="card">
-  <div class="topbar">
-    <div>
-      <h1>Entrar</h1>
-      <div class="muted">Acesse sua loja com usuário e senha.</div>
-    </div>
+
+{% block public %}
+<h2 class="h2">Entrar</h2>
+<p class="muted">Acesse com os dados da sua loja.</p>
+
+<form method="post" action="/login" class="form">
+  <label class="label">Nome da Loja</label>
+  <input class="input" name="store_name" required placeholder="ex: Depósito do Gabriel">
+
+  <label class="label">Usuário</label>
+  <input class="input" name="username" required placeholder="ex: admin">
+
+  <label class="label">Senha</label>
+  <input class="input" name="password" type="password" required placeholder="••••••••">
+
+  <button class="btn primary full" type="submit">Entrar</button>
+
+  <div class="links">
+    <a href="/admin/setup">Criar primeira loja</a>
+    <span>·</span>
+    <a href="/admin/reset_password">Resetar senha</a>
   </div>
-
-  <form method="post" action="/login">
-    <div class="row">
-      <div class="col">
-        <label>Nome da Loja</label>
-        <input class="input" name="store_name" placeholder="Ex: Depósito Gabriel" required>
-      </div>
-      <div class="col">
-        <label>Usuário</label>
-        <input class="input" name="username" placeholder="Ex: gabriel" required>
-      </div>
-    </div>
-
-    <div style="margin-top:12px;">
-      <label>Senha</label>
-      <input class="input" name="password" type="password" placeholder="••••••••" required>
-    </div>
-
-    <div style="margin-top:14px;">
-      <button class="btn primary full" type="submit">Entrar</button>
-    </div>
-
-    <div class="muted" style="font-size:12px; margin-top:10px;">
-      Primeiro acesso? Crie a loja em <code>/admin/setup</code>
-    </div>
-  </form>
-</div>
+</form>
 {% endblock %}

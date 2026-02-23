@@ -15,7 +15,7 @@
         <div class="logo"></div>
         <div>
           <h1>Sistema Loja</h1>
-          <small class="muted">Loja ID: {{ user.store_id }}</small>
+          <small>{{ user.store_name if user.store_name else "SaaS Multi-loja" }}</small>
         </div>
       </div>
 
@@ -27,19 +27,29 @@
         <a href="/customers">Clientes</a>
       </nav>
 
-      <div class="card" style="margin-top:12px;">
-        <div class="muted" style="font-size:12px;">Logado como</div>
-        <div><b>{{ user.username }}</b></div>
-        <div style="margin-top:10px;">
-          <a class="btn full" href="/logout">Sair</a>
-        </div>
+      <div class="small footer">
+        Logado como <b>{{ user.username }}</b><br>
+        <a href="/logout">Sair</a>
       </div>
     </aside>
 
     <main class="main">
+      <div class="topbar">
+        <div>
+          <div class="kicker">{{ kicker or "" }}</div>
+          <div class="title">{{ page_title or "" }}</div>
+        </div>
+        <div class="actions">
+          <a class="btn" href="/sales/new">+ Nova venda</a>
+          <a class="btn primary" href="/orders/new">+ Novo pedido</a>
+        </div>
+      </div>
+
       {% if error %}
-        <div class="alert error"><b>Erro:</b> {{ error }}</div>
+        <div class="alert error">{{ error }}</div>
       {% endif %}
+
+      <!-- ✅ APENAS UM block content no arquivo inteiro -->
       {% block content %}{% endblock %}
     </main>
   </div>
@@ -47,10 +57,13 @@
 {% else %}
   <div class="public-wrap">
     <div class="public-card">
+
       {% if error %}
-        <div class="alert error"><b>Erro:</b> {{ error }}</div>
+        <div class="alert error">{{ error }}</div>
       {% endif %}
-      {% block content %}{% endblock %}
+
+      <!-- ✅ Conteúdo público vem aqui -->
+      {% block public %}{% endblock %}
     </div>
   </div>
 {% endif %}

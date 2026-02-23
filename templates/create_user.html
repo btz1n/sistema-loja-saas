@@ -1,23 +1,31 @@
 {% extends "base.html" %}
 {% block content %}
 <h3>Criar usuário</h3>
+
 <div class="card shadow-sm">
   <div class="card-body">
     <form method="post" action="/admin/create_user">
       <div class="mb-2">
-        <label class="form-label">Nome da Loja (igual no cadastro)</label>
-        <input class="form-control" name="store_name" required>
+        <label class="form-label">Nome da Loja</label>
+        <input class="form-control" name="store_name" placeholder="Ex: delivery gabriel" required>
       </div>
+
       <div class="mb-2">
         <label class="form-label">Usuário</label>
-        <input class="form-control" name="username" required>
+        <input class="form-control" name="username" placeholder="Ex: gabriel" required>
       </div>
+
       <div class="mb-3">
         <label class="form-label">Senha</label>
         <input class="form-control" name="password" type="password" required>
       </div>
-      <button class="btn btn-primary">Criar</button>
+
+      <button class="btn btn-primary w-100">Criar</button>
     </form>
   </div>
 </div>
+
+<p class="text-muted small mt-3">
+  Dica: se a loja não existir, crie primeiro em <code>/admin/setup</code>.
+</p>
 {% endblock %}

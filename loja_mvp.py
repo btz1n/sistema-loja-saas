@@ -13,6 +13,8 @@ from sqlalchemy import (
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship, Session
 import secrets
 SECRET = secrets.token_hex(32)
+from sqlalchemy import func
+from fastapi.responses import PlainTextResponse
 # ======================
 # CONFIG
 # ======================
@@ -204,6 +206,56 @@ def today_range():
 # ======================
 # AUTH
 # ======================
+@app.get("/admin/create_user", response_class=HTMLResponse)
+def admin_create_user_page(request: Request):
+    return templates.TemplateResponse("create_user.html", {"request": request})
+
+
+@app.post("/admin/create_user")
+def admin_create_user(
+    store_name: str = Form(...),
+    username: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    store_name = store_name.strip()
+    username = username.strip()
+
+    store = db.query(Store).filter(func.lower(Store.name) == store_name.lower()).first()
+    if not store:
+        raise HTTPException(400, "Loja não encontrada. Confira o nome.")
+
+    existing = (
+        db.query(User)
+        .filter(User.store_id == store.id, func.lower(User.username) == username.lower())
+        .first()
+    )
+    if existing:
+        raise HTTPException(400, "Usuário já existe nessa loja.")
+
+    u = User(
+        store_id=store.id,
+        username=username,
+        role="admin",
+        password_hash=pwd_context.hash(password.strip()),
+    )
+    db.add(u)
+    db.commit()
+
+    return RedirectResponse("/login", status_code=302)
+
+
+@app.get("/admin/list_users", response_class=PlainTextResponse)
+def admin_list_users(db: Session = Depends(get_db)):
+    # Mostra lojas e usuários cadastrados (debug rápido)
+    stores = db.query(Store).order_by(Store.id.asc()).all()
+    lines = []
+    for s in stores:
+        lines.append(f"STORE {s.id} | {s.name}")
+        users = db.query(User).filter(User.store_id == s.id).order_by(User.id.asc()).all()
+        for u in users:
+            lines.append(f"  USER {u.id} | {u.username} | {u.role}")
+    return "\n".join(lines) + "\n"
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     # Se já tiver cookie, manda pro dashboard

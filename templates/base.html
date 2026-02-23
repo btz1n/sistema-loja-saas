@@ -51,6 +51,7 @@
         </div>
       {% endif %}
 
+      <!-- ✅ ÚNICO BLOCK -->
       {% block content %}{% endblock %}
     </main>
   </div>
@@ -64,8 +65,8 @@
         </div>
       {% endif %}
 
-      <!-- ✅ aqui NÃO tem block duplicado, apenas inclui um partial -->
-      {% include "_content.html" %}
+      <!-- ✅ Em vez de usar include, renderiza o conteúdo com uma variável -->
+      {{ public_content|safe if public_content else "" }}
     </div>
   </div>
 {% endif %}

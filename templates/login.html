@@ -1,106 +1,52 @@
-{% extends "base.html" %}
-{% block content %}
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar - Sistema Loja</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <style>
+    .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 14px;}
+    .login-card{width:100%;max-width:420px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);
+      backdrop-filter: blur(10px);border-radius:16px;padding:18px;color:#fff;}
+    .login-card h2{margin:0 0 6px;font-size:22px;}
+    .login-card p{margin:0 0 14px;opacity:.85;font-size:14px;}
+    .field{margin-bottom:12px;}
+    .field label{display:block;font-size:13px;margin-bottom:6px;opacity:.9;}
+    .field input{width:100%;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.28);color:#fff;outline:none;}
+    .btn{width:100%;padding:12px;border-radius:12px;border:none;cursor:pointer;font-weight:700;background:#3b82f6;color:white;}
+    .error{margin-bottom:12px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);padding:10px 12px;border-radius:12px;}
+  </style>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+      <h2>Entrar</h2>
+      <p>Acesse sua loja com usuário e senha.</p>
 
-<style>
-  .login-wrap{
-    min-height: calc(100vh - 40px);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding: 24px 14px;
-  }
-  .login-card{
-    width: 100%;
-    max-width: 420px;
-    background: rgba(255,255,255,.06);
-    border: 1px solid rgba(255,255,255,.14);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
-    padding: 18px;
-    color: #fff;
-  }
-  .login-card h2{
-    margin: 0 0 6px 0;
-    font-size: 22px;
-  }
-  .login-card p{
-    margin: 0 0 14px 0;
-    opacity: .85;
-    font-size: 14px;
-  }
-  .field{ margin-bottom: 12px; }
-  .field label{
-    display:block;
-    font-size: 13px;
-    margin-bottom: 6px;
-    opacity: .9;
-  }
-  .field input{
-    width:100%;
-    padding: 12px 12px;
-    border-radius: 12px;
-    border: 1px solid rgba(255,255,255,.14);
-    background: rgba(0,0,0,.28);
-    color: #fff;
-    outline:none;
-  }
-  .field input::placeholder{ color: rgba(255,255,255,.5); }
-  .btn{
-    width:100%;
-    padding: 12px 12px;
-    border-radius: 12px;
-    border: none;
-    cursor:pointer;
-    font-weight: 700;
-    background: #3b82f6;
-    color: white;
-  }
-  .hint{
-    margin-top: 10px;
-    font-size: 12px;
-    opacity: .85;
-  }
-  .error{
-    margin-bottom: 12px;
-    background: rgba(239,68,68,.12);
-    border: 1px solid rgba(239,68,68,.35);
-    padding: 10px 12px;
-    border-radius: 12px;
-  }
-</style>
+      {% if error %}
+        <div class="error"><b>Erro:</b> {{ error }}</div>
+      {% endif %}
 
-<div class="login-wrap">
-  <div class="login-card">
-    <h2>Entrar</h2>
-    <p>Acesse sua loja com usuário e senha.</p>
+      <form method="post" action="/login">
+        <div class="field">
+          <label>Nome da Loja</label>
+          <input name="store_name" placeholder="Ex: Depósito Gabriel" required>
+        </div>
 
-    {% if error %}
-      <div class="error"><b>Erro:</b> {{ error }}</div>
-    {% endif %}
+        <div class="field">
+          <label>Usuário</label>
+          <input name="username" placeholder="Ex: gabriel" required>
+        </div>
 
-    <form method="post" action="/login">
-      <div class="field">
-        <label>Nome da Loja</label>
-        <input name="store_name" placeholder="Ex: Depósito Gabriel" required>
-      </div>
+        <div class="field">
+          <label>Senha</label>
+          <input name="password" type="password" placeholder="••••••••" required>
+        </div>
 
-      <div class="field">
-        <label>Usuário</label>
-        <input name="username" placeholder="Ex: gabriel" required>
-      </div>
-
-      <div class="field">
-        <label>Senha</label>
-        <input name="password" type="password" placeholder="••••••••" required>
-      </div>
-
-      <button class="btn" type="submit">Entrar</button>
-    </form>
-
-    <div class="hint">
-      Se você é o admin, use <code>/admin/setup</code> para criar a primeira loja.
+        <button class="btn" type="submit">Entrar</button>
+      </form>
     </div>
   </div>
-</div>
-
-{% endblock %}
+</body>
+</html>

@@ -1,31 +1,41 @@
 {% extends "base.html" %}
+{% set title = "Entrar" %}
+
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-md-5">
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <h4 class="mb-3">Entrar</h4>
-        <form method="post" action="/login">
-          <div class="mb-2">
-            <label class="form-label">Nome da Loja</label>
-            <input class="form-control" name="store_name" placeholder="Ex: Loja Demo" required>
-          </div>
-          <div class="mb-2">
-            <label class="form-label">Usuário</label>
-            <input class="form-control" name="username" placeholder="admin" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Senha</label>
-            <input class="form-control" type="password" name="password" placeholder="admin123" required>
-          </div>
-          <button class="btn btn-primary w-100">Entrar</button>
-        </form>
-        <hr>
-        <p class="small text-muted mb-0">
-          Primeiro acesso? Crie uma loja em <b>/admin/setup</b>
-        </p>
-      </div>
+<div class="card">
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+    <div class="logo" style="width:44px;height:44px;"></div>
+    <div>
+      <div style="font-weight:800; font-size:18px;">Entrar</div>
+      <div class="small">Acesse sua loja</div>
     </div>
   </div>
+
+  <form method="post" action="/login">
+    <div style="display:grid; gap:10px;">
+      <div>
+        <div class="small">Nome da loja</div>
+        <input name="store_name" required style="width:100%; padding:12px; border-radius:12px; border:1px solid var(--line); background: rgba(255,255,255,.04); color: var(--text);">
+      </div>
+
+      <div>
+        <div class="small">Usuário</div>
+        <input name="username" required style="width:100%; padding:12px; border-radius:12px; border:1px solid var(--line); background: rgba(255,255,255,.04); color: var(--text);">
+      </div>
+
+      <div>
+        <div class="small">Senha</div>
+        <input name="password" type="password" required style="width:100%; padding:12px; border-radius:12px; border:1px solid var(--line); background: rgba(255,255,255,.04); color: var(--text);">
+      </div>
+
+      {% if error %}
+        <div class="small" style="color:#ffb4b4;">{{ error }}</div>
+      {% endif %}
+
+      <button class="btn primary" type="submit">Entrar</button>
+
+      <div class="small">Problemas para entrar? Fale com o suporte.</div>
+    </div>
+  </form>
 </div>
 {% endblock %}

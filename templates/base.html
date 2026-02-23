@@ -3,12 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ title or "Gerenciador" }}</title>
+  <title>{{ title or "Sistema Loja" }}</title>
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-  <div class="app">
 
+{% if user %}
+  <div class="app">
     <aside class="sidebar">
       <div class="brand">
         <div class="logo"></div>
@@ -20,19 +21,15 @@
 
       <nav class="nav">
         <a href="/dashboard">Dashboard <span class="badge">home</span></a>
-        <a href="/orders">Pedidos <span class="badge">{{ stats.pending_orders if stats else "" }}</span></a>
-        <a href="/sales">Vendas <span class="badge">caixa</span></a>
-        <a href="/products">Produtos <span class="badge">estoque</span></a>
-        <a href="/customers">Clientes <span class="badge">crm</span></a>
+        <a href="/orders">Pedidos</a>
+        <a href="/sales">Vendas</a>
+        <a href="/products">Produtos</a>
+        <a href="/customers">Clientes</a>
       </nav>
 
       <div class="small" style="padding:10px 12px; border-top:1px solid var(--line); margin-top:10px;">
-        {% if user %}
-          Logado como <b>{{ user.username }}</b><br>
-          <a href="/logout">Sair</a>
-        {% else %}
-          <a href="/login">Entrar</a>
-        {% endif %}
+        Logado como <b>{{ user.username }}</b><br>
+        <a href="/logout">Sair</a>
       </div>
     </aside>
 
@@ -40,27 +37,32 @@
       <div class="topbar">
         <div>
           <div class="kicker">{{ kicker or "Visão geral" }}</div>
-          <div class="title">{{ page_title or "Dashboard" }}</div>
+          <div class="title">{{ page_title or "" }}</div>
         </div>
         <div class="actions">
-          {% if user %}
-            <a class="btn" href="/sales/new">+ Nova venda</a>
-            <a class="btn primary" href="/orders/new">+ Novo pedido</a>
-          {% else %}
-            <a class="btn primary" href="/login">Entrar</a>
-          {% endif %}
+          <a class="btn" href="/sales/new">+ Nova venda</a>
+          <a class="btn primary" href="/orders/new">+ Novo pedido</a>
         </div>
       </div>
 
       {% if error %}
-        <div class="card span-12" style="border-color: rgba(239,68,68,.4);">
+        <div class="card" style="border-color: rgba(239,68,68,.4);">
           <b>Erro:</b> {{ error }}
         </div>
       {% endif %}
 
       {% block content %}{% endblock %}
     </main>
-
   </div>
+
+{% else %}
+  <!-- MODO PÚBLICO (login) -->
+  <div class="public-wrap">
+    <div class="public-card">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+{% endif %}
+
 </body>
 </html>

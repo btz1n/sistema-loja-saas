@@ -1,197 +1,63 @@
-from datetime import datetime, date
-from fastapi import FastAPI, Request, Form, Depends, HTTPException
-from fastapi.responses import RedirectResponse, HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+import os
+import json
+import traceback
+from datetime import date
 from pathlib import Path
+from typing import Optional, Dict, Any
+
+from fastapi import FastAPI, Request, Depends, Form, HTTPException
+from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.templating import Jinja2Templates
+
 from passlib.context import CryptContext
 
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 from sqlalchemy import (
-    create_engine, Column, Integer, String, Float, DateTime, ForeignKey
+    create_engine, Column, Integer, String, Float, Date, ForeignKey, Text, func
 )
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship, Session
-import secrets
-SECRET = secrets.token_hex(32)
-from sqlalchemy import func
-from fastapi.responses import PlainTextResponse
-# ======================
-# CONFIG
-# ======================
-import os
-from sqlalchemy import create_engine
 
+
+# ----------------------------
+# Paths (absolute, Render-safe)
+# ----------------------------
+BASE_DIR = Path(__file__).resolve().parent
+TEMPLATES_DIR = BASE_DIR / "templates"
+STATIC_DIR = BASE_DIR / "static"
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# ----------------------------
+# App
+# ----------------------------
+app = FastAPI()
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+# ----------------------------
+# DB
+# ----------------------------
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# Se não tiver DATABASE_URL (rodando local), usa SQLite
 if not DATABASE_URL:
     DATABASE_URL = "sqlite:///./loja.db"
-    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        pool_pre_ping=True,
+    )
 else:
-    # Render às vezes usa postgres://
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 Base = declarative_base()
 
-app = FastAPI()
-BASE_DIR = Path(__file__).resolve().parent
 
-import traceback
-
-@app.middleware("http")
-async def log_exceptions(request, call_next):
-    try:
-        return await call_next(request)
-    except Exception:
-        print("=== ERRO NA REQUISIÇÃO ===")
-        print("URL:", request.url)
-        traceback.print_exc()
-        raise
-
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
-# ======================
-# MODELS
-# ======================
-class Store(Base):
-    __tablename__ = "stores"
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True, nullable=False)
-
-    users = relationship("User", back_populates="store")
-
-
-class User(Base):
-    __tablename__ = "users"
-    id = Column(Integer, primary_key=True)
-    store_id = Column(Integer, ForeignKey("stores.id"), nullable=False)
-    username = Column(String, nullable=False)
-    password_hash = Column(String, nullable=False)
-    role = Column(String, default="admin")  # admin / staff
-
-    store = relationship("Store", back_populates="users")
-
-
-class Product(Base):
-    __tablename__ = "products"
-    id = Column(Integer, primary_key=True)
-    store_id = Column(Integer, nullable=False, index=True)
-    name = Column(String, nullable=False)
-    sku = Column(String, default="")
-    price = Column(Float, default=0.0)
-    stock = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
-class Customer(Base):
-    __tablename__ = "customers"
-    id = Column(Integer, primary_key=True)
-    store_id = Column(Integer, nullable=False, index=True)
-    name = Column(String, nullable=False)
-    phone = Column(String, default="")
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
-class Sale(Base):
-    __tablename__ = "sales"
-    id = Column(Integer, primary_key=True)
-    store_id = Column(Integer, nullable=False, index=True)
-    customer_name = Column(String, default="Cliente avulso")
-    payment_method = Column(String, default="dinheiro")
-    total = Column(Float, default=0.0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    items = relationship("SaleItem", back_populates="sale", cascade="all, delete-orphan")
-
-
-class SaleItem(Base):
-    __tablename__ = "sale_items"
-    id = Column(Integer, primary_key=True)
-    sale_id = Column(Integer, ForeignKey("sales.id"), nullable=False)
-    product_id = Column(Integer, nullable=False)
-    product_name = Column(String, nullable=False)
-    qty = Column(Integer, default=1)
-    unit_price = Column(Float, default=0.0)
-    line_total = Column(Float, default=0.0)
-
-    sale = relationship("Sale", back_populates="items")
-
-class Order(Base):
-    __tablename__ = "orders"
-    id = Column(Integer, primary_key=True)
-    store_id = Column(Integer, nullable=False, index=True)
-
-    customer_name = Column(String, default="Cliente avulso")
-    customer_phone = Column(String, default="")
-    address = Column(String, default="")
-    notes = Column(String, default="")  # observação do pedido
-
-    payment_method = Column(String, default="dinheiro")  # dinheiro/pix/cartao
-    delivery_fee = Column(Float, default=0.0)
-
-    status = Column(String, default="novo")  # novo/separando/saiu/entregue/cancelado
-    total = Column(Float, default=0.0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
-
-
-class OrderItem(Base):
-    __tablename__ = "order_items"
-    id = Column(Integer, primary_key=True)
-    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
-
-    product_id = Column(Integer, nullable=False)
-    product_name = Column(String, nullable=False)
-    qty = Column(Integer, default=1)
-    unit_price = Column(Float, default=0.0)
-    line_total = Column(Float, default=0.0)
-
-    order = relationship("Order", back_populates="items")
-# ======================
-# DB INIT + SEED
-# ======================
-Base.metadata.create_all(bind=engine)
-
-def seed_if_empty():
-    db = SessionLocal()
-    try:
-        store = db.query(Store).first()
-        if not store:
-            store = Store(name="Loja Demo")
-            db.add(store)
-            db.commit()
-            db.refresh(store)
-
-            admin = User(
-                store_id=store.id,
-                username="admin",
-                password_hash=pwd_context.hash("admin123"),
-                role="admin"
-            )
-            db.add(admin)
-
-            db.add_all([
-                Product(store_id=store.id, name="Camiseta Preta", sku="CAM-001", price=59.90, stock=20),
-                Product(store_id=store.id, name="Boné", sku="BONE-001", price=39.90, stock=10),
-            ])
-            db.add_all([
-                Customer(store_id=store.id, name="Cliente Exemplo", phone="(00) 00000-0000")
-            ])
-
-            db.commit()
-    finally:
-        db.close()
-
-seed_if_empty()
-
-# ======================
-# HELPERS
-# ======================
 def get_db():
     db = SessionLocal()
     try:
@@ -199,54 +65,181 @@ def get_db():
     finally:
         db.close()
 
-# Sessão simples via cookie: store_id e user_id
-def require_auth(request: Request, db: Session = Depends(get_db)):
+
+# ----------------------------
+# Models
+# ----------------------------
+class Store(Base):
+    __tablename__ = "stores"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(200), unique=True, nullable=False)
+
+    users = relationship("User", back_populates="store")
+    customers = relationship("Customer", back_populates="store")
+    products = relationship("Product", back_populates="store")
+    sales = relationship("Sale", back_populates="store")
+    orders = relationship("Order", back_populates="store")
+
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True)
+    store_id = Column(Integer, ForeignKey("stores.id"), nullable=False)
+    username = Column(String(120), nullable=False)
+    role = Column(String(30), default="admin")
+    password_hash = Column(String(300), nullable=False)
+
+    store = relationship("Store", back_populates="users")
+
+
+class Customer(Base):
+    __tablename__ = "customers"
+    id = Column(Integer, primary_key=True)
+    store_id = Column(Integer, ForeignKey("stores.id"), nullable=False)
+    name = Column(String(200), nullable=False)
+    phone = Column(String(80), default="")
+    address = Column(Text, default="")
+
+    store = relationship("Store", back_populates="customers")
+
+
+class Product(Base):
+    __tablename__ = "products"
+    id = Column(Integer, primary_key=True)
+    store_id = Column(Integer, ForeignKey("stores.id"), nullable=False)
+    name = Column(String(200), nullable=False)
+    price = Column(Float, default=0.0)
+    stock = Column(Integer, default=0)
+
+    store = relationship("Store", back_populates="products")
+
+
+class Sale(Base):
+    __tablename__ = "sales"
+    id = Column(Integer, primary_key=True)
+    store_id = Column(Integer, ForeignKey("stores.id"), nullable=False)
+    created_at = Column(Date, default=date.today)
+    customer_name = Column(String(200), default="")
+    total = Column(Float, default=0.0)
+    status = Column(String(40), default="concluida")
+
+    store = relationship("Store", back_populates="sales")
+    items = relationship("SaleItem", back_populates="sale", cascade="all, delete-orphan")
+
+
+class SaleItem(Base):
+    __tablename__ = "sale_items"
+    id = Column(Integer, primary_key=True)
+    sale_id = Column(Integer, ForeignKey("sales.id"), nullable=False)
+    product_name = Column(String(200), nullable=False)
+    qty = Column(Integer, default=1)
+    price = Column(Float, default=0.0)
+
+    sale = relationship("Sale", back_populates="items")
+
+
+class Order(Base):
+    __tablename__ = "orders"
+    id = Column(Integer, primary_key=True)
+    store_id = Column(Integer, ForeignKey("stores.id"), nullable=False)
+    created_at = Column(Date, default=date.today)
+
+    customer_name = Column(String(200), default="")
+    phone = Column(String(80), default="")
+    address = Column(Text, default="")
+
+    status = Column(String(40), default="novo")  # novo, separando, saiu, entregue
+    total = Column(Float, default=0.0)
+    notes = Column(Text, default="")
+
+    store = relationship("Store", back_populates="orders")
+    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+    id = Column(Integer, primary_key=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    product_name = Column(String(200), nullable=False)
+    qty = Column(Integer, default=1)
+    price = Column(Float, default=0.0)
+
+    order = relationship("Order", back_populates="items")
+
+
+Base.metadata.create_all(bind=engine)
+
+
+# ----------------------------
+# Middleware: always log exceptions (Render)
+# ----------------------------
+@app.middleware("http")
+async def log_exceptions(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception:
+        print("=== EXCEPTION ===")
+        print("URL:", request.url)
+        traceback.print_exc()
+        raise
+
+
+# ----------------------------
+# Auth (DO NOT redirect inside dependency)
+# ----------------------------
+def require_auth(request: Request, db: Session):
     user_id = request.cookies.get("user_id")
     store_id = request.cookies.get("store_id")
     if not user_id or not store_id:
         raise HTTPException(status_code=401, detail="Não autenticado.")
-    user = db.query(User).filter(User.id == int(user_id), User.store_id == int(store_id)).first()
+
+    try:
+        uid = int(user_id)
+        sid = int(store_id)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Sessão inválida.")
+
+    user = db.query(User).filter(User.id == uid, User.store_id == sid).first()
     if not user:
         raise HTTPException(status_code=401, detail="Sessão inválida.")
     return user
-from starlette.responses import RedirectResponse
-
-def require_auth_or_redirect(request: Request, db: Session = Depends(get_db)):
-    user_id = request.cookies.get("user_id")
-    store_id = request.cookies.get("store_id")
-
-    # Sem sessão -> manda pro login
-    if not user_id or not store_id:
-        return RedirectResponse(url="/login", status_code=302)
-
-    user = db.query(User).filter(
-        User.id == int(user_id),
-        User.store_id == int(store_id)
-    ).first()
-
-    # Sessão inválida -> manda pro login e limpa cookies
-    if not user:
-        resp = RedirectResponse(url="/login", status_code=302)
-        resp.delete_cookie("user_id")
-        resp.delete_cookie("store_id")
-        return resp
-
-    return user
-def today_range():
-    start = datetime.combine(date.today(), datetime.min.time())
-    end = datetime.combine(date.today(), datetime.max.time())
-    return start, end
-
-# ======================
-# AUTH
-# ======================
-@app.get("/admin/create_user", response_class=HTMLResponse)
-def admin_create_user_page(request: Request):
-    return templates.TemplateResponse("create_user.html", {"request": request})
 
 
-@app.post("/admin/create_user")
-def admin_create_user(
+def get_current_user_optional(request: Request, db: Session) -> Optional[User]:
+    try:
+        return require_auth(request, db)
+    except HTTPException:
+        return None
+
+
+def redirect_login():
+    return RedirectResponse("/login", status_code=302)
+
+
+def set_session_cookies(resp: RedirectResponse, user: User):
+    # In Render HTTPS, secure=True helps. Locally may block cookies if not https.
+    secure = bool(os.environ.get("RENDER")) or bool(os.environ.get("ON_RENDER"))
+    resp.set_cookie("user_id", str(user.id), httponly=True, samesite="lax", secure=secure)
+    resp.set_cookie("store_id", str(user.store_id), httponly=True, samesite="lax", secure=secure)
+    return resp
+
+
+# ----------------------------
+# Public routes
+# ----------------------------
+@app.get("/", include_in_schema=False)
+def home():
+    return RedirectResponse("/login", status_code=302)
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request, "user": None})
+
+
+@app.post("/login", response_class=HTMLResponse)
+def do_login(
+    request: Request,
     store_name: str = Form(...),
     username: str = Form(...),
     password: str = Form(...),
@@ -254,36 +247,131 @@ def admin_create_user(
 ):
     store_name = store_name.strip()
     username = username.strip()
+    password = password.strip()
 
     store = db.query(Store).filter(func.lower(Store.name) == store_name.lower()).first()
     if not store:
-        raise HTTPException(400, "Loja não encontrada. Confira o nome.")
+        return templates.TemplateResponse("login.html", {"request": request, "user": None, "error": "Loja não encontrada."})
 
-    existing = (
-        db.query(User)
-        .filter(User.store_id == store.id, func.lower(User.username) == username.lower())
-        .first()
-    )
+    user = db.query(User).filter(
+        User.store_id == store.id,
+        func.lower(User.username) == username.lower()
+    ).first()
+
+    if not user or not pwd_context.verify(password, user.password_hash):
+        return templates.TemplateResponse("login.html", {"request": request, "user": None, "error": "Usuário ou senha inválidos."})
+
+    resp = RedirectResponse("/dashboard", status_code=302)
+    return set_session_cookies(resp, user)
+
+
+@app.get("/logout")
+def logout():
+    resp = RedirectResponse("/login", status_code=302)
+    resp.delete_cookie("user_id")
+    resp.delete_cookie("store_id")
+    return resp
+
+
+# ----------------------------
+# Admin utilities
+# ----------------------------
+@app.get("/admin/list_users", response_class=PlainTextResponse)
+def admin_list_users(db: Session = Depends(get_db)):
+    stores = db.query(Store).order_by(Store.id.asc()).all()
+    lines = []
+    for s in stores:
+        lines.append(f"STORE {s.id} | {s.name}")
+        users = db.query(User).filter(User.store_id == s.id).order_by(User.id.asc()).all()
+        for u in users:
+            lines.append(f"  USER {u.id} | {u.username} | {u.role}")
+    return "\n".join(lines) + "\n"
+
+
+@app.get("/admin/setup", response_class=HTMLResponse)
+def admin_setup_page(request: Request):
+    return templates.TemplateResponse("setup.html", {"request": request, "user": None})
+
+
+@app.post("/admin/setup")
+def admin_setup_create(
+    request: Request,
+    store_name: str = Form(...),
+    username: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    store_name = store_name.strip()
+    username = username.strip()
+    password = password.strip()
+
+    store = db.query(Store).filter(func.lower(Store.name) == store_name.lower()).first()
+    if not store:
+        store = Store(name=store_name)
+        db.add(store)
+        db.commit()
+        db.refresh(store)
+
+    existing = db.query(User).filter(
+        User.store_id == store.id,
+        func.lower(User.username) == username.lower()
+    ).first()
     if existing:
-        raise HTTPException(400, "Usuário já existe nessa loja.")
+        return RedirectResponse("/login", status_code=302)
 
     u = User(
         store_id=store.id,
         username=username,
         role="admin",
-        password_hash=pwd_context.hash(password.strip()),
+        password_hash=pwd_context.hash(password),
     )
     db.add(u)
     db.commit()
-
     return RedirectResponse("/login", status_code=302)
+
+
+@app.get("/admin/create_user", response_class=HTMLResponse)
+def admin_create_user_page(request: Request):
+    return templates.TemplateResponse("create_user.html", {"request": request, "user": None})
+
+
+@app.post("/admin/create_user")
+def admin_create_user(
+    request: Request,
+    store_name: str = Form(...),
+    username: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    store_name = store_name.strip()
+    username = username.strip()
+    password = password.strip()
+
+    store = db.query(Store).filter(func.lower(Store.name) == store_name.lower()).first()
+    if not store:
+        raise HTTPException(400, "Loja não encontrada. Confira o nome.")
+
+    existing = db.query(User).filter(
+        User.store_id == store.id,
+        func.lower(User.username) == username.lower()
+    ).first()
+    if existing:
+        raise HTTPException(400, "Usuário já existe nessa loja.")
+
+    u = User(store_id=store.id, username=username, role="admin", password_hash=pwd_context.hash(password))
+    db.add(u)
+    db.commit()
+    return RedirectResponse("/login", status_code=302)
+
 
 @app.get("/admin/reset_password", response_class=HTMLResponse)
 def reset_password_page(request: Request):
-    return templates.TemplateResponse("reset_password.html", {"request": request})
+    return templates.TemplateResponse("reset_password.html", {"request": request, "user": None})
+
 
 @app.post("/admin/reset_password")
 def reset_password_action(
+    request: Request,
     store_name: str = Form(...),
     username: str = Form(...),
     new_password: str = Form(...),
@@ -291,6 +379,7 @@ def reset_password_action(
 ):
     store_name = store_name.strip()
     username = username.strip()
+    new_password = new_password.strip()
 
     store = db.query(Store).filter(func.lower(Store.name) == store_name.lower()).first()
     if not store:
@@ -303,95 +392,32 @@ def reset_password_action(
     if not user:
         raise HTTPException(400, "Usuário não encontrado nessa loja.")
 
-    user.password_hash = pwd_context.hash(new_password.strip())
+    user.password_hash = pwd_context.hash(new_password)
     db.commit()
-
     return RedirectResponse("/login", status_code=302)
 
-@app.get("/admin/list_users", response_class=PlainTextResponse)
-def admin_list_users(db: Session = Depends(get_db)):
-    # Mostra lojas e usuários cadastrados (debug rápido)
-    stores = db.query(Store).order_by(Store.id.asc()).all()
-    lines = []
-    for s in stores:
-        lines.append(f"STORE {s.id} | {s.name}")
-        users = db.query(User).filter(User.store_id == s.id).order_by(User.id.asc()).all()
-        for u in users:
-            lines.append(f"  USER {u.id} | {u.username} | {u.role}")
-    return "\n".join(lines) + "\n"
 
-@app.get("/", include_in_schema=False)
-def home():
-    return RedirectResponse("/login", status_code=302)
-
-@app.get("/login", response_class=HTMLResponse)
-def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "user": None})
-
-@app.post("/login")
-def do_login(
-    request: Request,
-    store_name: str = Form(...),
-    username: str = Form(...),
-    password: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    store = db.query(Store).filter(Store.name == store_name).first()
-    if not store:
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Loja não encontrada."})
-
-    user = db.query(User).filter(User.store_id == store.id, User.username == username).first()
-    if not user or not pwd_context.verify(password, user.password_hash):
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Usuário ou senha inválidos."})
-
-    resp = RedirectResponse("/dashboard", status_code=302)
-    resp.set_cookie("user_id", str(user.id), httponly=True, samesite="lax")
-    resp.set_cookie("store_id", str(store.id), httponly=True, samesite="lax")
-    return resp
-
-@app.get("/logout")
-def logout():
-    resp = RedirectResponse("/login", status_code=302)
-    resp.delete_cookie("user_id")
-    resp.delete_cookie("store_id")
-    return resp
-
-# ======================
-# DASHBOARD
-# ======================
-@app.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(require_auth)):
-    stats = build_stats(db, user.store_id)
-
-    last_sales = db.query(Sale).filter(Sale.store_id == user.store_id).order_by(Sale.id.desc()).limit(8).all()
-
-    return templates.TemplateResponse(
-        "dashboard.html",
-        {"request": request, "user": user, "stats": stats, "last_sales": last_sales}
-    )
-
-from datetime import date, datetime
-from sqlalchemy import func
-
-def build_stats(db: Session, store_id: int):
+# ----------------------------
+# Dashboard stats
+# ----------------------------
+def build_stats(db: Session, store_id: int) -> Dict[str, Any]:
     today = date.today()
     month_start = today.replace(day=1)
 
-    # Ajuste os modelos/colunas para os seus nomes reais
-    sales_today_value = db.query(func.coalesce(func.sum(Sale.total), 0)).filter(
+    sales_today_value = db.query(func.coalesce(func.sum(Sale.total), 0.0)).filter(
         Sale.store_id == store_id,
-        func.date(Sale.created_at) == today
-    ).scalar() or 0
+        Sale.created_at == today
+    ).scalar() or 0.0
 
     sales_today_count = db.query(func.count(Sale.id)).filter(
         Sale.store_id == store_id,
-        func.date(Sale.created_at) == today
+        Sale.created_at == today
     ).scalar() or 0
 
-    sales_month_value = db.query(func.coalesce(func.sum(Sale.total), 0)).filter(
+    sales_month_value = db.query(func.coalesce(func.sum(Sale.total), 0.0)).filter(
         Sale.store_id == store_id,
-        func.date(Sale.created_at) >= month_start
-    ).scalar() or 0
+        Sale.created_at >= month_start
+    ).scalar() or 0.0
 
     pending_orders = db.query(func.count(Order.id)).filter(
         Order.store_id == store_id,
@@ -410,419 +436,288 @@ def build_stats(db: Session, store_id: int):
         "pending_orders": int(pending_orders),
         "low_stock": int(low_stock),
     }
-# ======================
-# PRODUCTS
-# ======================
+
+
+# ----------------------------
+# Private pages (match your templates)
+# ----------------------------
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user_optional(request, db)
+    if not user:
+        return redirect_login()
+
+    stats = build_stats(db, user.store_id)
+
+    # last sales for dashboard
+    last_sales = db.query(Sale).filter(Sale.store_id == user.store_id).order_by(Sale.id.desc()).limit(8).all()
+
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {"request": request, "user": user, "stats": stats, "last_sales": last_sales},
+    )
+
+
 @app.get("/products", response_class=HTMLResponse)
-def products_page(request: Request, user: user=Depends(require_auth_or_redirect), db: Session = Depends(get_db)):
+def products_page(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user_optional(request, db)
+    if not user:
+        return redirect_login()
+
     products = db.query(Product).filter(Product.store_id == user.store_id).order_by(Product.id.desc()).all()
     return templates.TemplateResponse("products.html", {"request": request, "user": user, "products": products})
 
-@app.post("/products/add")
-def add_product(
+
+@app.post("/products/create")
+def products_create(
+    request: Request,
     name: str = Form(...),
-    sku: str = Form(""),
     price: float = Form(0.0),
     stock: int = Form(0),
-    user: User = Depends(require_auth),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    p = Product(store_id=user.store_id, name=name, sku=sku, price=price, stock=stock)
+    user = get_current_user_optional(request, db)
+    if not user:
+        return redirect_login()
+
+    p = Product(store_id=user.store_id, name=name.strip(), price=float(price), stock=int(stock))
     db.add(p)
     db.commit()
     return RedirectResponse("/products", status_code=302)
 
-@app.post("/products/{product_id}/update")
-def update_product(
-    product_id: int,
-    name: str = Form(...),
-    sku: str = Form(""),
-    price: float = Form(0.0),
-    stock: int = Form(0),
-    user: User = Depends(require_auth),
-    db: Session = Depends(get_db)
-):
-    p = db.query(Product).filter(Product.id == product_id, Product.store_id == user.store_id).first()
-    if not p:
-        raise HTTPException(404, "Produto não encontrado")
-    p.name = name
-    p.sku = sku
-    p.price = price
-    p.stock = stock
-    db.commit()
-    return RedirectResponse("/products", status_code=302)
 
-@app.post("/products/{product_id}/delete")
-def delete_product(product_id: int, user: User = Depends(require_auth), db: Session = Depends(get_db)):
-    p = db.query(Product).filter(Product.id == product_id, Product.store_id == user.store_id).first()
-    if not p:
-        raise HTTPException(404, "Produto não encontrado")
-    db.delete(p)
-    db.commit()
-    return RedirectResponse("/products", status_code=302)
-
-# ======================
-# CUSTOMERS
-# ======================
 @app.get("/customers", response_class=HTMLResponse)
-def customers_page(request: Request, user: User = Depends(require_auth), db: Session = Depends(get_db)):
+def customers_page(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user_optional(request, db)
+    if not user:
+        return redirect_login()
+
     customers = db.query(Customer).filter(Customer.store_id == user.store_id).order_by(Customer.id.desc()).all()
     return templates.TemplateResponse("customers.html", {"request": request, "user": user, "customers": customers})
 
-@app.post("/customers/add")
-def add_customer(
+
+@app.post("/customers/create")
+def customers_create(
+    request: Request,
     name: str = Form(...),
     phone: str = Form(""),
-    user: User = Depends(require_auth),
-    db: Session = Depends(get_db)
+    address: str = Form(""),
+    db: Session = Depends(get_db),
 ):
-    c = Customer(store_id=user.store_id, name=name, phone=phone)
+    user = get_current_user_optional(request, db)
+    if not user:
+        return redirect_login()
+
+    c = Customer(store_id=user.store_id, name=name.strip(), phone=phone.strip(), address=address.strip())
     db.add(c)
     db.commit()
     return RedirectResponse("/customers", status_code=302)
 
-@app.post("/customers/{customer_id}/delete")
-def delete_customer(customer_id: int, user: User = Depends(require_auth), db: Session = Depends(get_db)):
-    c = db.query(Customer).filter(Customer.id == customer_id, Customer.store_id == user.store_id).first()
-    if not c:
-        raise HTTPException(404, "Cliente não encontrado")
-    db.delete(c)
-    db.commit()
-    return RedirectResponse("/customers", status_code=302)
 
-# ======================
-# SALES
-# ======================
 @app.get("/sales", response_class=HTMLResponse)
-def sales_page(request: Request, user: User = Depends(require_auth), db: Session = Depends(get_db)):
-    sales = db.query(Sale).filter(Sale.store_id == user.store_id).order_by(Sale.id.desc()).limit(200).all()
+def sales_page(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user_optional(request, db)
+    if not user:
+        return redirect_login()
+
+    sales = db.query(Sale).filter(Sale.store_id == user.store_id).order_by(Sale.id.desc()).all()
     return templates.TemplateResponse("sales.html", {"request": request, "user": user, "sales": sales})
 
+
+@app.get("/sales/{sale_id}", response_class=HTMLResponse)
+def sale_detail_page(sale_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_current_user_optional(request, db)
+    if not user:
+        return redirect_login()
+
+    sale = db.query(Sale).filter(Sale.id == sale_id, Sale.store_id == user.store_id).first()
+    if not sale:
+        raise HTTPException(404, "Venda não encontrada.")
+    return templates.TemplateResponse("sales_detail.html", {"request": request, "user": user, "sale": sale})
+
+
 @app.get("/sales/new", response_class=HTMLResponse)
-def new_sale_page(request: Request, user: User = Depends(require_auth), db: Session = Depends(get_db)):
+def new_sale_page(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user_optional(request, db)
+    if not user:
+        return redirect_login()
+
     products = db.query(Product).filter(Product.store_id == user.store_id).order_by(Product.name.asc()).all()
-    return templates.TemplateResponse("sale_new.html", {"request": request, "user": user, "products": products})
+    customers = db.query(Customer).filter(Customer.store_id == user.store_id).order_by(Customer.name.asc()).all()
+
+    return templates.TemplateResponse("sale_new.html", {"request": request, "user": user, "products": products, "customers": customers})
+
 
 @app.post("/sales/create")
-def create_sale(
-    customer_name: str = Form("Cliente avulso"),
-    payment_method: str = Form("dinheiro"),
-    # campos repetidos no form: product_id e qty
-    user: User = Depends(require_auth),
-    db: Session = Depends(get_db),
-    request: Request = None
-):
-    form = request._form if hasattr(request, "_form") else None
-
-    # FastAPI não expõe fácil listas sem Request.form(); vamos pegar direto:
-    # workaround: usar request.form() sincrono (ok aqui)
-    # (FastAPI resolve isso; deixo simples)
-    raise HTTPException(400, "Abra o /sales/create via POST usando o formulário (já configurado no HTML).")
-
-@app.post("/sales/create_form")
-async def create_sale_form(
+def sales_create(
     request: Request,
-    customer_name: str = Form("Cliente avulso"),
-    payment_method: str = Form("dinheiro"),
-    user: User = Depends(require_auth),
+    customer_name: str = Form(""),
+    items_json: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    form = await request.form()
-    product_ids = form.getlist("product_id")
-    qtys = form.getlist("qty")
+    user = get_current_user_optional(request, db)
+    if not user:
+        return redirect_login()
 
-    items = []
-    total = 0.0
+    try:
+        items = json.loads(items_json)
+        if not isinstance(items, list):
+            raise ValueError
+    except Exception:
+        raise HTTPException(400, "Itens inválidos.")
 
-    for pid_str, qty_str in zip(product_ids, qtys):
-        if not pid_str:
-            continue
-        pid = int(pid_str)
-        qty = int(qty_str) if qty_str else 0
-        if qty <= 0:
-            continue
-
-        p = db.query(Product).filter(Product.id == pid, Product.store_id == user.store_id).first()
-        if not p:
-            continue
-        if p.stock < qty:
-            # estoque insuficiente
-            return templates.TemplateResponse(
-                "sale_new.html",
-                {
-                    "request": request,
-                    "user": user,
-                    "products": db.query(Product).filter(Product.store_id == user.store_id).order_by(Product.name.asc()).all(),
-                    "error": f"Estoque insuficiente para {p.name}. Estoque atual: {p.stock}"
-                }
-            )
-
-        line_total = float(p.price) * qty
-        total += line_total
-        items.append((p, qty, line_total))
-
-    if not items:
-        return templates.TemplateResponse(
-            "sale_new.html",
-            {
-                "request": request,
-                "user": user,
-                "products": db.query(Product).filter(Product.store_id == user.store_id).order_by(Product.name.asc()).all(),
-                "error": "Adicione pelo menos 1 item na venda."
-            }
-        )
-
-    sale = Sale(
-        store_id=user.store_id,
-        customer_name=customer_name.strip() if customer_name else "Cliente avulso",
-        payment_method=payment_method.strip() if payment_method else "dinheiro",
-        total=round(total, 2)
-    )
+    sale = Sale(store_id=user.store_id, customer_name=customer_name.strip(), created_at=date.today(), status="concluida")
     db.add(sale)
     db.commit()
     db.refresh(sale)
 
-    # grava itens + baixa estoque
-    for p, qty, line_total in items:
-        p.stock -= qty
-        si = SaleItem(
-            sale_id=sale.id,
-            product_id=p.id,
-            product_name=p.name,
-            qty=qty,
-            unit_price=float(p.price),
-            line_total=round(line_total, 2)
-        )
-        db.add(si)
+    total = 0.0
+    for it in items:
+        pname = str(it.get("product_name", "")).strip()
+        qty = int(it.get("qty", 0) or 0)
+        price = float(it.get("price", 0.0) or 0.0)
+        if not pname or qty <= 0:
+            continue
 
+        total += qty * price
+        db.add(SaleItem(sale_id=sale.id, product_name=pname, qty=qty, price=price))
+
+        prod = db.query(Product).filter(Product.store_id == user.store_id, func.lower(Product.name) == pname.lower()).first()
+        if prod:
+            prod.stock = max(0, int(prod.stock) - qty)
+
+    sale.total = float(total)
     db.commit()
+
     return RedirectResponse("/sales", status_code=302)
 
-@app.get("/sales/{sale_id}", response_class=HTMLResponse)
-def sale_detail(request: Request, sale_id: int, user: User = Depends(require_auth), db: Session = Depends(get_db)):
-    sale = db.query(Sale).filter(Sale.id == sale_id, Sale.store_id == user.store_id).first()
-    if not sale:
-        raise HTTPException(404, "Venda não encontrada")
-    return templates.TemplateResponse("sale_detail.html", {"request": request, "user": user, "sale": sale})
 
-# ======================
-# ADMIN - CREATE NEW STORE + ADMIN USER
-# ======================
-@app.get("/admin/setup", response_class=HTMLResponse)
-def setup_page(request: Request):
-    return templates.TemplateResponse("setup.html", {"request": request})
-
-@app.post("/admin/setup")
-def setup_store(
-    request: Request,
-    store_name: str = Form(...),
-    admin_user: str = Form(...),
-    admin_pass: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    # cria loja e admin
-    if db.query(Store).filter(Store.name == store_name).first():
-        return templates.TemplateResponse("setup.html", {"request": request, "error": "Já existe uma loja com esse nome."})
-
-    store = Store(name=store_name)
-    db.add(store)
-    db.commit()
-    db.refresh(store)
-
-    user = User(
-        store_id=store.id,
-        username=admin_user,
-        password_hash=pwd_context.hash("admin123"),
-        role="admin"
-    )
-    db.add(user)
-    db.commit()
-
-    return templates.TemplateResponse(
-        "setup.html",
-        {"request": request, "success": f"Loja criada! Agora faça login com Loja='{store_name}', Usuário='{admin_user}'"}
-    )
-
-# ======================
-# ORDERS (DELIVERY)
-# ======================
 @app.get("/orders", response_class=HTMLResponse)
-def orders_page(
-    request: Request,
-    status: str | None = None,
-    user: User = Depends(require_auth),
-    db: Session = Depends(get_db),
-):
-    q = db.query(Order).filter(Order.store_id == user.store_id)
+def orders_page(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user_optional(request, db)
+    if not user:
+        return redirect_login()
 
-    if status:
-        status = status.strip().lower()
-        q = q.filter(Order.status == status)
+    orders = db.query(Order).filter(Order.store_id == user.store_id).order_by(Order.id.desc()).all()
+    return templates.TemplateResponse("orders.html", {"request": request, "user": user, "orders": orders})
 
-    orders = q.order_by(Order.id.desc()).limit(300).all()
-
-    return templates.TemplateResponse(
-        "orders.html",
-        {"request": request, "user": user, "orders": orders, "status_filter": status or ""}
-    )
 
 @app.get("/orders/new", response_class=HTMLResponse)
-def new_order_page(request: Request, user: User = Depends(require_auth), db: Session = Depends(get_db)):
+def new_order_page(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user_optional(request, db)
+    if not user:
+        return redirect_login()
+
+    customers = db.query(Customer).filter(Customer.store_id == user.store_id).order_by(Customer.name.asc()).all()
     products = db.query(Product).filter(Product.store_id == user.store_id).order_by(Product.name.asc()).all()
-    return templates.TemplateResponse("order_new.html", {"request": request, "user": user, "products": products})
+
+    return templates.TemplateResponse("order_new.html", {"request": request, "user": user, "customers": customers, "products": products})
 
 
-@app.post("/orders/create_form")
-async def create_order_form(
+@app.get("/orders/{order_id}", response_class=HTMLResponse)
+def order_detail_page(order_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_current_user_optional(request, db)
+    if not user:
+        return redirect_login()
+
+    order = db.query(Order).filter(Order.id == order_id, Order.store_id == user.store_id).first()
+    if not order:
+        raise HTTPException(404, "Pedido não encontrado.")
+    return templates.TemplateResponse("order_detail.html", {"request": request, "user": user, "order": order})
+
+
+@app.post("/orders/create")
+def orders_create(
     request: Request,
-    customer_name: str = Form("Cliente avulso"),
-    customer_phone: str = Form(""),
+    customer_name: str = Form(""),
+    phone: str = Form(""),
     address: str = Form(""),
     notes: str = Form(""),
-    payment_method: str = Form("dinheiro"),
-    delivery_fee: float = Form(0.0),
-    user: User = Depends(require_auth),
+    items_json: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    form = await request.form()
-    product_ids = form.getlist("product_id")
-    qtys = form.getlist("qty")
+    user = get_current_user_optional(request, db)
+    if not user:
+        return redirect_login()
 
-    items = []
-    subtotal = 0.0
-
-    for pid_str, qty_str in zip(product_ids, qtys):
-        if not pid_str:
-            continue
-        pid = int(pid_str)
-        qty = int(qty_str) if qty_str else 0
-        if qty <= 0:
-            continue
-
-        p = db.query(Product).filter(Product.id == pid, Product.store_id == user.store_id).first()
-        if not p:
-            continue
-
-        if p.stock < qty:
-            return templates.TemplateResponse(
-                "order_new.html",
-                {
-                    "request": request,
-                    "user": user,
-                    "products": db.query(Product).filter(Product.store_id == user.store_id).order_by(Product.name.asc()).all(),
-                    "error": f"Estoque insuficiente para {p.name}. Estoque atual: {p.stock}"
-                }
-            )
-
-        line_total = float(p.price) * qty
-        subtotal += line_total
-        items.append((p, qty, line_total))
-
-    if not items:
-        return templates.TemplateResponse(
-            "order_new.html",
-            {
-                "request": request,
-                "user": user,
-                "products": db.query(Product).filter(Product.store_id == user.store_id).order_by(Product.name.asc()).all(),
-                "error": "Adicione pelo menos 1 item no pedido."
-            }
-        )
-
-    delivery_fee = float(delivery_fee or 0.0)
-    total = round(subtotal + delivery_fee, 2)
+    try:
+        items = json.loads(items_json)
+        if not isinstance(items, list):
+            raise ValueError
+    except Exception:
+        raise HTTPException(400, "Itens inválidos.")
 
     order = Order(
         store_id=user.store_id,
-        customer_name=(customer_name or "Cliente avulso").strip(),
-        customer_phone=(customer_phone or "").strip(),
-        address=(address or "").strip(),
-        notes=(notes or "").strip(),
-        payment_method=(payment_method or "dinheiro").strip(),
-        delivery_fee=round(delivery_fee, 2),
+        created_at=date.today(),
+        customer_name=customer_name.strip(),
+        phone=phone.strip(),
+        address=address.strip(),
+        notes=notes.strip(),
         status="novo",
-        total=total
     )
     db.add(order)
     db.commit()
     db.refresh(order)
 
-    # grava itens + baixa estoque
-    for p, qty, line_total in items:
-        p.stock -= qty
-        oi = OrderItem(
-            order_id=order.id,
-            product_id=p.id,
-            product_name=p.name,
-            qty=qty,
-            unit_price=float(p.price),
-            line_total=round(line_total, 2)
-        )
-        db.add(oi)
+    total = 0.0
+    for it in items:
+        pname = str(it.get("product_name", "")).strip()
+        qty = int(it.get("qty", 0) or 0)
+        price = float(it.get("price", 0.0) or 0.0)
+        if not pname or qty <= 0:
+            continue
 
+        total += qty * price
+        db.add(OrderItem(order_id=order.id, product_name=pname, qty=qty, price=price))
+
+        prod = db.query(Product).filter(Product.store_id == user.store_id, func.lower(Product.name) == pname.lower()).first()
+        if prod:
+            prod.stock = max(0, int(prod.stock) - qty)
+
+    order.total = float(total)
     db.commit()
+
     return RedirectResponse("/orders", status_code=302)
 
 
-@app.get("/orders/{order_id}", response_class=HTMLResponse)
-def order_detail(request: Request, order_id: int, user: User = Depends(require_auth), db: Session = Depends(get_db)):
-    order = db.query(Order).filter(Order.id == order_id, Order.store_id == user.store_id).first()
-    if not order:
-        raise HTTPException(404, "Pedido não encontrado")
-    return templates.TemplateResponse("order_detail.html", {"request": request, "user": user, "order": order})
-
-
 @app.post("/orders/{order_id}/status")
-def update_order_status(
+def order_set_status(
     order_id: int,
+    request: Request,
     status: str = Form(...),
-    user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
+    user = get_current_user_optional(request, db)
+    if not user:
+        return redirect_login()
+
     order = db.query(Order).filter(Order.id == order_id, Order.store_id == user.store_id).first()
     if not order:
-        raise HTTPException(404, "Pedido não encontrado")
+        raise HTTPException(404, "Pedido não encontrado.")
 
-    allowed = {"novo", "separando", "saiu", "entregue", "cancelado"}
-    status = (status or "").strip().lower()
-    if status not in allowed:
-        raise HTTPException(400, "Status inválido")
+    status = status.strip().lower()
+    if status not in ["novo", "separando", "saiu", "entregue"]:
+        raise HTTPException(400, "Status inválido.")
 
     order.status = status
     db.commit()
 
-    # Se entregou, cria uma VENDA concluída automaticamente (sem baixar estoque de novo)
+    # Auto-create sale when delivered
     if status == "entregue":
-        tag = f"(Pedido #{order.id})"
-
-        existing = (
-            db.query(Sale)
-            .filter(Sale.store_id == user.store_id, Sale.customer_name.contains(tag))
-            .first()
+        sale = Sale(
+            store_id=user.store_id,
+            created_at=date.today(),
+            customer_name=order.customer_name,
+            total=order.total,
+            status="concluida",
         )
+        db.add(sale)
+        db.commit()
+        db.refresh(sale)
 
-        if not existing:
-            sale = Sale(
-                store_id=user.store_id,
-                customer_name=f"{order.customer_name} {tag}",
-                payment_method=order.payment_method,
-                total=float(order.total),
-            )
-            db.add(sale)
-            db.commit()
-            db.refresh(sale)
-
-            for it in order.items:
-                si = SaleItem(
-                    sale_id=sale.id,
-                    product_id=it.product_id,
-                    product_name=it.product_name,
-                    qty=it.qty,
-                    unit_price=float(it.unit_price),
-                    line_total=float(it.line_total),
-                )
-                db.add(si)
-
-            db.commit()
+        for it in order.items:
+            db.add(SaleItem(sale_id=sale.id, product_name=it.product_name, qty=it.qty, price=it.price))
+        db.commit()
 
     return RedirectResponse(f"/orders/{order_id}", status_code=302)

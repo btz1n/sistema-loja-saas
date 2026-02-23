@@ -17,7 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship, Session
 
-
+LAST_ERROR = None
 # ----------------------------
 # Paths (absolute, Render-safe)
 # ----------------------------
@@ -65,7 +65,21 @@ def get_db():
     finally:
         db.close()
 
+@app.get("/health")
+def health(db: Session = Depends(get_db)):
+    # testa conexão DB e se tabelas existem
+    try:
+        db.execute(func.now())  # só pra bater no banco
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
+@app.get("/debug/last_error", response_class=PlainTextResponse)
+def debug_last_error():
+    global LAST_ERROR
+    if not LAST_ERROR:
+        return "Sem erro capturado ainda. Acesse /login e depois volte aqui."
+    return f"URL: {LAST_ERROR['url']}\n\n{LAST_ERROR['trace']}"
 # ----------------------------
 # Models
 # ----------------------------
@@ -175,14 +189,18 @@ Base.metadata.create_all(bind=engine)
 # ----------------------------
 @app.middleware("http")
 async def log_exceptions(request: Request, call_next):
+    global LAST_ERROR
     try:
         return await call_next(request)
     except Exception:
+        LAST_ERROR = {
+            "url": str(request.url),
+            "trace": traceback.format_exc()
+        }
         print("=== EXCEPTION ===")
         print("URL:", request.url)
-        traceback.print_exc()
+        print(LAST_ERROR["trace"])
         raise
-
 
 # ----------------------------
 # Auth (DO NOT redirect inside dependency)

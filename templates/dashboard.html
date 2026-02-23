@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Dashboard</h3>
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="text-muted">Vendas hoje</div>
+        <div class="display-6">R$ {{ "%.2f"|format(total_today) }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="text-muted">Vendas total</div>
+        <div class="display-6">R$ {{ "%.2f"|format(total_all) }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="text-muted">Alerta de estoque</div>
+        {% if low_stock %}
+          <ul class="mb-0">
+            {% for p in low_stock %}
+              <li>{{ p.name }} ({{ p.stock }})</li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div>Sem alertas 🎉</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

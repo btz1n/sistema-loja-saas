@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Clientes</h3>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <h5 class="mb-3">Adicionar cliente</h5>
+    <form class="row g-2" method="post" action="/customers/add">
+      <div class="col-md-6"><input class="form-control" name="name" placeholder="Nome" required></div>
+      <div class="col-md-4"><input class="form-control" name="phone" placeholder="Telefone"></div>
+      <div class="col-md-2"><button class="btn btn-primary w-100">Adicionar</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h5 class="mb-3">Lista</h5>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr><th>ID</th><th>Nome</th><th>Telefone</th><th>Ações</th></tr>
+        </thead>
+        <tbody>
+        {% for c in customers %}
+          <tr>
+            <td>{{ c.id }}</td>
+            <td>{{ c.name }}</td>
+            <td>{{ c.phone }}</td>
+            <td>
+              <form class="d-inline" method="post" action="/customers/{{c.id}}/delete">
+                <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Excluir?')">Excluir</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

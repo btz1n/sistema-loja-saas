@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Criar nova loja (Admin)</h3>
+<div class="card shadow-sm">
+  <div class="card-body">
+    <form method="post" action="/admin/setup">
+      <div class="mb-2">
+        <label class="form-label">Nome da loja</label>
+        <input class="form-control" name="store_name" required>
+      </div>
+      <div class="mb-2">
+        <label class="form-label">Usuário admin</label>
+        <input class="form-control" name="admin_user" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Senha admin</label>
+        <input class="form-control" type="password" name="admin_pass" required>
+      </div>
+      <button class="btn btn-primary">Criar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

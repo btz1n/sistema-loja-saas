@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Venda #{{ sale.id }}</h3>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <div><b>Data:</b> {{ sale.created_at.strftime("%d/%m/%Y %H:%M") }}</div>
+    <div><b>Cliente:</b> {{ sale.customer_name }}</div>
+    <div><b>Pagamento:</b> {{ sale.payment_method }}</div>
+    <div><b>Total:</b> R$ {{ "%.2f"|format(sale.total) }}</div>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h5>Itens</h5>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr><th>Produto</th><th>Qtd</th><th>Unitário</th><th>Total</th></tr>
+        </thead>
+        <tbody>
+          {% for it in sale.items %}
+          <tr>
+            <td>{{ it.product_name }}</td>
+            <td>{{ it.qty }}</td>
+            <td>R$ {{ "%.2f"|format(it.unit_price) }}</td>
+            <td>R$ {{ "%.2f"|format(it.line_total) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Novo pedido (Delivery)</h3>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <form method="post" action="/orders/create_form">
+      <div class="row g-2 mb-2">
+        <div class="col-md-4">
+          <label class="form-label">Cliente</label>
+          <input class="form-control" name="customer_name" placeholder="Nome do cliente">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Telefone</label>
+          <input class="form-control" name="customer_phone" placeholder="(xx) xxxxx-xxxx">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Pagamento</label>
+          <select class="form-select" name="payment_method">
+            <option value="dinheiro">Dinheiro</option>
+            <option value="pix">PIX</option>
+            <option value="cartao">Cartão</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row g-2 mb-2">
+        <div class="col-md-8">
+          <label class="form-label">Endereço</label>
+          <input class="form-control" name="address" placeholder="Rua, nº, bairro, referência">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Taxa de entrega</label>
+          <input class="form-control" name="delivery_fee" type="number" step="0.01" value="0">
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Observação</label>
+        <input class="form-control" name="notes" placeholder="Ex: sem gelo, trocar marca, troco para 100...">
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Itens</h5>
+        <button type="button" class="btn btn-outline-primary btn-sm" onclick="addItemRow()">Adicionar item</button>
+      </div>
+
+      <p class="text-muted small">Adicione quantos produtos quiser.</p>
+
+      <div id="itemsArea"></div>
+
+      <button class="btn btn-success w-100 mt-3">Criar pedido</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  const productOptionsHtml = `
+    <option value="">-- selecione --</option>
+    {% for p in products %}
+      <option value="{{p.id}}">{{ p.name }} (R$ {{ "%.2f"|format(p.price) }} | estoque: {{p.stock}})</option>
+    {% endfor %}
+  `;
+
+  function addItemRow() {
+    const row = document.createElement("div");
+    row.className = "row g-2 mb-2 align-items-center";
+    row.innerHTML = `
+      <div class="col-md-7">
+        <select class="form-select" name="product_id">
+          ${productOptionsHtml}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <input class="form-control" name="qty" type="number" min="0" placeholder="Qtd">
+      </div>
+      <div class="col-md-2 d-grid">
+        <button type="button" class="btn btn-outline-danger" onclick="this.closest('.row').remove()">Remover</button>
+      </div>
+    `;
+    document.getElementById("itemsArea").appendChild(row);
+  }
+
+  // começa com 3 linhas
+  addItemRow(); addItemRow(); addItemRow();
+</script>
+{% endblock %}

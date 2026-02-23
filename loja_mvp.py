@@ -328,7 +328,7 @@ def logout():
 # DASHBOARD
 # ======================
 @app.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(require_user)):
+def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(require_auth)):
     stats = build_stats(db, user.store_id)
 
     last_sales = db.query(Sale).filter(Sale.store_id == user.store_id).order_by(Sale.id.desc()).limit(8).all()

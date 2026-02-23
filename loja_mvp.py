@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from passlib.context import CryptContext
 
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 from sqlalchemy import (
     create_engine, Column, Integer, String, Float, DateTime, ForeignKey
 )
@@ -328,30 +328,56 @@ def logout():
 # DASHBOARD
 # ======================
 @app.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request, user: User = Depends(require_auth), db: Session = Depends(get_db)):
-    store_id = user.store_id
+def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(require_user)):
+    stats = build_stats(db, user.store_id)
 
-    start, end = today_range()
-    sales_today = db.query(Sale).filter(Sale.store_id == store_id, Sale.created_at >= start, Sale.created_at <= end).all()
-    total_today = sum(s.total for s in sales_today)
-
-    sales_all = db.query(Sale).filter(Sale.store_id == store_id).all()
-    total_all = sum(s.total for s in sales_all)
-
-    products = db.query(Product).filter(Product.store_id == store_id).all()
-    low_stock = [p for p in products if p.stock <= 3]
+    last_sales = db.query(Sale).filter(Sale.store_id == user.store_id).order_by(Sale.id.desc()).limit(8).all()
 
     return templates.TemplateResponse(
         "dashboard.html",
-        {
-            "request": request,
-            "user": user,
-            "total_today": total_today,
-            "total_all": total_all,
-            "low_stock": low_stock[:10],
-        }
+        {"request": request, "user": user, "stats": stats, "last_sales": last_sales}
     )
 
+from datetime import date, datetime
+from sqlalchemy import func
+
+def build_stats(db: Session, store_id: int):
+    today = date.today()
+    month_start = today.replace(day=1)
+
+    # Ajuste os modelos/colunas para os seus nomes reais
+    sales_today_value = db.query(func.coalesce(func.sum(Sale.total), 0)).filter(
+        Sale.store_id == store_id,
+        func.date(Sale.created_at) == today
+    ).scalar() or 0
+
+    sales_today_count = db.query(func.count(Sale.id)).filter(
+        Sale.store_id == store_id,
+        func.date(Sale.created_at) == today
+    ).scalar() or 0
+
+    sales_month_value = db.query(func.coalesce(func.sum(Sale.total), 0)).filter(
+        Sale.store_id == store_id,
+        func.date(Sale.created_at) >= month_start
+    ).scalar() or 0
+
+    pending_orders = db.query(func.count(Order.id)).filter(
+        Order.store_id == store_id,
+        Order.status.in_(["novo", "separando", "saiu"])
+    ).scalar() or 0
+
+    low_stock = db.query(func.count(Product.id)).filter(
+        Product.store_id == store_id,
+        Product.stock <= 3
+    ).scalar() or 0
+
+    return {
+        "sales_today_value": float(sales_today_value),
+        "sales_today_count": int(sales_today_count),
+        "sales_month_value": float(sales_month_value),
+        "pending_orders": int(pending_orders),
+        "low_stock": int(low_stock),
+    }
 # ======================
 # PRODUCTS
 # ======================

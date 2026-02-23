@@ -1,37 +1,64 @@
 {% extends "base.html" %}
+{% set page_title = "Dashboard" %}
+{% set kicker = "Resumo do dia" %}
+
 {% block content %}
-<h3>Dashboard</h3>
-<div class="row g-3">
-  <div class="col-md-4">
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <div class="text-muted">Vendas hoje</div>
-        <div class="display-6">R$ {{ "%.2f"|format(total_today) }}</div>
-      </div>
-    </div>
+<div class="grid">
+  <div class="card span-3">
+    <h3>Vendas hoje</h3>
+    <div class="metric">R$ {{ "%.2f"|format(stats.sales_today_value) }}</div>
+    <div class="sub">{{ stats.sales_today_count }} vendas</div>
   </div>
-  <div class="col-md-4">
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <div class="text-muted">Vendas total</div>
-        <div class="display-6">R$ {{ "%.2f"|format(total_all) }}</div>
-      </div>
-    </div>
+
+  <div class="card span-3">
+    <h3>Pedidos pendentes</h3>
+    <div class="metric">{{ stats.pending_orders }}</div>
+    <div class="sub">Aguardando / em andamento</div>
   </div>
-  <div class="col-md-4">
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <div class="text-muted">Alerta de estoque</div>
-        {% if low_stock %}
-          <ul class="mb-0">
-            {% for p in low_stock %}
-              <li>{{ p.name }} ({{ p.stock }})</li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <div>Sem alertas 🎉</div>
-        {% endif %}
-      </div>
+
+  <div class="card span-3">
+    <h3>Produtos com baixo estoque</h3>
+    <div class="metric">{{ stats.low_stock }}</div>
+    <div class="sub">Sugestão: reabastecer</div>
+  </div>
+
+  <div class="card span-3">
+    <h3>Total do mês</h3>
+    <div class="metric">R$ {{ "%.2f"|format(stats.sales_month_value) }}</div>
+    <div class="sub">somatório do mês</div>
+  </div>
+
+  <div class="card span-8">
+    <h3>Últimas vendas</h3>
+    <table class="table">
+      <thead>
+        <tr><th>Data</th><th>Cliente</th><th>Total</th></tr>
+      </thead>
+      <tbody>
+        {% for s in last_sales %}
+          <tr>
+            <td>{{ s.created_at }}</td>
+            <td>{{ s.customer_name }}</td>
+            <td>R$ {{ "%.2f"|format(s.total) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if not last_sales %}
+      <div class="small">Ainda sem vendas.</div>
+    {% endif %}
+  </div>
+
+  <div class="card span-4">
+    <h3>Atalhos</h3>
+    <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
+      <a class="btn" href="/products">Cadastrar produtos</a>
+      <a class="btn" href="/customers">Cadastrar clientes</a>
+      <a class="btn" href="/orders">Ver pedidos</a>
+      <a class="btn primary" href="/sales/new">Abrir venda</a>
+    </div>
+    <div class="small" style="margin-top:12px;">
+      Dica: Depósito usa muito o painel de pedidos.
     </div>
   </div>
 </div>

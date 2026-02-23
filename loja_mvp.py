@@ -244,6 +244,35 @@ def admin_create_user(
 
     return RedirectResponse("/login", status_code=302)
 
+@app.get("/admin/reset_password", response_class=HTMLResponse)
+def reset_password_page(request: Request):
+    return templates.TemplateResponse("reset_password.html", {"request": request})
+
+@app.post("/admin/reset_password")
+def reset_password_action(
+    store_name: str = Form(...),
+    username: str = Form(...),
+    new_password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    store_name = store_name.strip()
+    username = username.strip()
+
+    store = db.query(Store).filter(func.lower(Store.name) == store_name.lower()).first()
+    if not store:
+        raise HTTPException(400, "Loja não encontrada. Confira o nome.")
+
+    user = db.query(User).filter(
+        User.store_id == store.id,
+        func.lower(User.username) == username.lower()
+    ).first()
+    if not user:
+        raise HTTPException(400, "Usuário não encontrado nessa loja.")
+
+    user.password_hash = pwd_context.hash(new_password.strip())
+    db.commit()
+
+    return RedirectResponse("/login", status_code=302)
 
 @app.get("/admin/list_users", response_class=PlainTextResponse)
 def admin_list_users(db: Session = Depends(get_db)):

@@ -1,23 +1,26 @@
 {% extends "base.html" %}
 {% block content %}
-<h3>Criar nova loja (Admin)</h3>
-<div class="card shadow-sm">
-  <div class="card-body">
-    <form method="post" action="/admin/setup">
-      <div class="mb-2">
-        <label class="form-label">Nome da loja</label>
-        <input class="form-control" name="store_name" required>
-      </div>
-      <div class="mb-2">
-        <label class="form-label">Usuário admin</label>
-        <input class="form-control" name="admin_user" required>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Senha admin</label>
-        <input class="form-control" type="password" name="admin_pass" required>
-      </div>
-      <button class="btn btn-primary">Criar</button>
-    </form>
-  </div>
+<div class="card">
+  <h1 style="margin:0 0 6px 0;">Criar Loja + Admin</h1>
+  <div class="muted" style="margin-bottom:12px;">Primeiro acesso do sistema.</div>
+
+  <form method="post" action="/admin/setup">
+    <label>Nome da loja</label>
+    <input class="input" name="store_name" required>
+
+    <div style="margin-top:10px;">
+      <label>Usuário admin</label>
+      <input class="input" name="username" required>
+    </div>
+
+    <div style="margin-top:10px;">
+      <label>Senha</label>
+      <input class="input" name="password" type="password" required>
+    </div>
+
+    <div style="margin-top:12px;">
+      <button class="btn primary full" type="submit">Criar</button>
+    </div>
+  </form>
 </div>
 {% endblock %}

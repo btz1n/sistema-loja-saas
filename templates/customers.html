@@ -1,42 +1,54 @@
 {% extends "base.html" %}
 {% block content %}
-<h3>Clientes</h3>
 
-<div class="card shadow-sm mb-3">
-  <div class="card-body">
-    <h5 class="mb-3">Adicionar cliente</h5>
-    <form class="row g-2" method="post" action="/customers/add">
-      <div class="col-md-6"><input class="form-control" name="name" placeholder="Nome" required></div>
-      <div class="col-md-4"><input class="form-control" name="phone" placeholder="Telefone"></div>
-      <div class="col-md-2"><button class="btn btn-primary w-100">Adicionar</button></div>
+<div class="topbar">
+  <h1>Clientes</h1>
+</div>
+
+<div class="row">
+  <div class="col card">
+    <h1 style="font-size:16px; margin:0 0 10px 0;">Cadastrar cliente</h1>
+    <form method="post" action="/customers/create">
+      <label>Nome</label>
+      <input class="input" name="name" required>
+
+      <div style="margin-top:10px;">
+        <label>Telefone</label>
+        <input class="input" name="phone">
+      </div>
+
+      <div style="margin-top:10px;">
+        <label>Endereço</label>
+        <textarea class="input" name="address" rows="3"></textarea>
+      </div>
+
+      <div style="margin-top:12px;">
+        <button class="btn primary full" type="submit">Salvar</button>
+      </div>
     </form>
   </div>
-</div>
 
-<div class="card shadow-sm">
-  <div class="card-body">
-    <h5 class="mb-3">Lista</h5>
-    <div class="table-responsive">
-      <table class="table table-sm align-middle">
-        <thead>
-          <tr><th>ID</th><th>Nome</th><th>Telefone</th><th>Ações</th></tr>
-        </thead>
-        <tbody>
-        {% for c in customers %}
-          <tr>
-            <td>{{ c.id }}</td>
-            <td>{{ c.name }}</td>
-            <td>{{ c.phone }}</td>
-            <td>
-              <form class="d-inline" method="post" action="/customers/{{c.id}}/delete">
-                <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Excluir?')">Excluir</button>
-              </form>
-            </td>
-          </tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    </div>
+  <div class="col card" style="flex:2;">
+    <h1 style="font-size:16px; margin:0 0 10px 0;">Lista</h1>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Nome</th><th>Telefone</th><th>Endereço</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for c in customers %}
+        <tr>
+          <td>{{ c.name }}</td>
+          <td>{{ c.phone }}</td>
+          <td class="muted">{{ c.address }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="3" class="muted">Sem clientes.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
+
 {% endblock %}

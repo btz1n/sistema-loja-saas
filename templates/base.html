@@ -15,7 +15,7 @@
         <div class="logo"></div>
         <div>
           <h1>Sistema Loja</h1>
-          <small>{{ user.store_name if user and user.store_name else "SaaS Multi-loja" }}</small>
+          <small class="muted">Loja ID: {{ user.store_id }}</small>
         </div>
       </div>
 
@@ -27,31 +27,19 @@
         <a href="/customers">Clientes</a>
       </nav>
 
-      <div class="small" style="padding:10px 12px; border-top:1px solid rgba(255,255,255,.10); margin-top:10px;">
-        Logado como <b>{{ user.username }}</b><br>
-        <a href="/logout">Sair</a>
+      <div class="card" style="margin-top:12px;">
+        <div class="muted" style="font-size:12px;">Logado como</div>
+        <div><b>{{ user.username }}</b></div>
+        <div style="margin-top:10px;">
+          <a class="btn full" href="/logout">Sair</a>
+        </div>
       </div>
     </aside>
 
     <main class="main">
-      <div class="topbar">
-        <div>
-          <div class="kicker">{{ kicker or "" }}</div>
-          <div class="title">{{ page_title or "" }}</div>
-        </div>
-        <div class="actions">
-          <a class="btn" href="/sales/new">+ Nova venda</a>
-          <a class="btn primary" href="/orders/new">+ Novo pedido</a>
-        </div>
-      </div>
-
       {% if error %}
-        <div class="card" style="border-color: rgba(239,68,68,.4);">
-          <b>Erro:</b> {{ error }}
-        </div>
+        <div class="alert error"><b>Erro:</b> {{ error }}</div>
       {% endif %}
-
-      <!-- ✅ ÚNICO BLOCK -->
       {% block content %}{% endblock %}
     </main>
   </div>
@@ -60,13 +48,9 @@
   <div class="public-wrap">
     <div class="public-card">
       {% if error %}
-        <div class="card" style="border-color: rgba(239,68,68,.4); margin-bottom:12px;">
-          <b>Erro:</b> {{ error }}
-        </div>
+        <div class="alert error"><b>Erro:</b> {{ error }}</div>
       {% endif %}
-
-      <!-- ✅ Em vez de usar include, renderiza o conteúdo com uma variável -->
-      {{ public_content|safe if public_content else "" }}
+      {% block content %}{% endblock %}
     </div>
   </div>
 {% endif %}

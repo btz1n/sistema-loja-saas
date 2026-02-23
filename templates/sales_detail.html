@@ -1,36 +1,46 @@
 {% extends "base.html" %}
 {% block content %}
-<h3>Venda #{{ sale.id }}</h3>
 
-<div class="card shadow-sm mb-3">
-  <div class="card-body">
-    <div><b>Data:</b> {{ sale.created_at.strftime("%d/%m/%Y %H:%M") }}</div>
-    <div><b>Cliente:</b> {{ sale.customer_name }}</div>
-    <div><b>Pagamento:</b> {{ sale.payment_method }}</div>
-    <div><b>Total:</b> R$ {{ "%.2f"|format(sale.total) }}</div>
+<div class="topbar">
+  <h1>Venda #{{ sale.id }}</h1>
+  <a class="btn" href="/sales">Voltar</a>
+</div>
+
+<div class="row">
+  <div class="col card">
+    <div class="muted">Cliente</div>
+    <div style="font-size:18px;font-weight:800;">{{ sale.customer_name }}</div>
+    <div class="muted">Data: {{ sale.created_at }}</div>
+  </div>
+
+  <div class="col card">
+    <div class="muted">Total</div>
+    <div style="font-size:22px;font-weight:800;">R$ {{ "%.2f"|format(sale.total) }}</div>
+    <div style="margin-top:6px;"><span class="badge ok">{{ sale.status }}</span></div>
   </div>
 </div>
 
-<div class="card shadow-sm">
-  <div class="card-body">
-    <h5>Itens</h5>
-    <div class="table-responsive">
-      <table class="table table-sm align-middle">
-        <thead>
-          <tr><th>Produto</th><th>Qtd</th><th>Unitário</th><th>Total</th></tr>
-        </thead>
-        <tbody>
-          {% for it in sale.items %}
-          <tr>
-            <td>{{ it.product_name }}</td>
-            <td>{{ it.qty }}</td>
-            <td>R$ {{ "%.2f"|format(it.unit_price) }}</td>
-            <td>R$ {{ "%.2f"|format(it.line_total) }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
+<div style="height:12px;"></div>
+
+<div class="card">
+  <h1 style="font-size:16px; margin:0 0 10px 0;">Itens</h1>
+  <table class="table">
+    <thead>
+      <tr><th>Produto</th><th>Qtd</th><th>Preço</th><th>Subtotal</th></tr>
+    </thead>
+    <tbody>
+      {% for it in sale.items %}
+      <tr>
+        <td>{{ it.product_name }}</td>
+        <td>{{ it.qty }}</td>
+        <td>R$ {{ "%.2f"|format(it.price) }}</td>
+        <td>R$ {{ "%.2f"|format(it.qty * it.price) }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">Sem itens.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
+
 {% endblock %}

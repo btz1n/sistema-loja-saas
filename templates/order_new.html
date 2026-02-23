@@ -1,87 +1,90 @@
 {% extends "base.html" %}
 {% block content %}
-<h3>Novo pedido (Delivery)</h3>
 
-<div class="card shadow-sm">
-  <div class="card-body">
-    <form method="post" action="/orders/create_form">
-      <div class="row g-2 mb-2">
-        <div class="col-md-4">
-          <label class="form-label">Cliente</label>
-          <input class="form-control" name="customer_name" placeholder="Nome do cliente">
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Telefone</label>
-          <input class="form-control" name="customer_phone" placeholder="(xx) xxxxx-xxxx">
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Pagamento</label>
-          <select class="form-select" name="payment_method">
-            <option value="dinheiro">Dinheiro</option>
-            <option value="pix">PIX</option>
-            <option value="cartao">Cartão</option>
-          </select>
-        </div>
+<div class="topbar">
+  <h1>Novo Pedido</h1>
+  <a class="btn" href="/orders">Voltar</a>
+</div>
+
+<div class="card">
+  <form method="post" action="/orders/create" onsubmit="return buildItemsJson('items_json')">
+    <div class="row">
+      <div class="col">
+        <label>Cliente</label>
+        <input class="input" name="customer_name" placeholder="Nome do cliente">
+      </div>
+      <div class="col">
+        <label>Telefone</label>
+        <input class="input" name="phone" placeholder="(DDD) 99999-9999">
+      </div>
+    </div>
+
+    <div style="margin-top:10px;">
+      <label>Endereço</label>
+      <textarea class="input" name="address" rows="2"></textarea>
+    </div>
+
+    <div style="margin-top:10px;">
+      <label>Observações</label>
+      <textarea class="input" name="notes" rows="2"></textarea>
+    </div>
+
+    <input type="hidden" name="items_json" id="items_json">
+
+    <div style="margin-top:14px;">
+      <div class="topbar">
+        <h1 style="font-size:16px;margin:0;">Itens</h1>
+        <button class="btn" type="button" onclick="addRow()">+ Adicionar item</button>
       </div>
 
-      <div class="row g-2 mb-2">
-        <div class="col-md-8">
-          <label class="form-label">Endereço</label>
-          <input class="form-control" name="address" placeholder="Rua, nº, bairro, referência">
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Taxa de entrega</label>
-          <input class="form-control" name="delivery_fee" type="number" step="0.01" value="0">
-        </div>
-      </div>
+      <table class="table" id="itemsTable">
+        <thead>
+          <tr>
+            <th>Produto</th><th>Qtd</th><th>Preço</th><th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="muted" style="font-size:12px;">Adicione quantos itens quiser.</div>
+    </div>
 
-      <div class="mb-3">
-        <label class="form-label">Observação</label>
-        <input class="form-control" name="notes" placeholder="Ex: sem gelo, trocar marca, troco para 100...">
-      </div>
-
-      <div class="d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Itens</h5>
-        <button type="button" class="btn btn-outline-primary btn-sm" onclick="addItemRow()">Adicionar item</button>
-      </div>
-
-      <p class="text-muted small">Adicione quantos produtos quiser.</p>
-
-      <div id="itemsArea"></div>
-
-      <button class="btn btn-success w-100 mt-3">Criar pedido</button>
-    </form>
-  </div>
+    <div style="margin-top:14px;">
+      <button class="btn primary full" type="submit">Criar Pedido</button>
+    </div>
+  </form>
 </div>
 
 <script>
-  const productOptionsHtml = `
-    <option value="">-- selecione --</option>
-    {% for p in products %}
-      <option value="{{p.id}}">{{ p.name }} (R$ {{ "%.2f"|format(p.price) }} | estoque: {{p.stock}})</option>
-    {% endfor %}
+function rowTemplate(){
+  return `
+    <tr>
+      <td><input class="input" name="product_name" placeholder="Ex: Água 1L" required></td>
+      <td style="width:90px;"><input class="input" name="qty" type="number" min="1" value="1" required></td>
+      <td style="width:130px;"><input class="input" name="price" type="number" step="0.01" min="0" value="0" required></td>
+      <td style="width:90px;"><button class="btn danger" type="button" onclick="this.closest('tr').remove()">Remover</button></td>
+    </tr>
   `;
+}
+function addRow(){
+  document.querySelector("#itemsTable tbody").insertAdjacentHTML("beforeend", rowTemplate());
+}
+function buildItemsJson(hiddenId){
+  const rows = Array.from(document.querySelectorAll("#itemsTable tbody tr"));
+  const items = rows.map(r => {
+    const pname = r.querySelector('input[name="product_name"]').value.trim();
+    const qty = parseInt(r.querySelector('input[name="qty"]').value || "0", 10);
+    const price = parseFloat(r.querySelector('input[name="price"]').value || "0");
+    return {product_name: pname, qty: qty, price: price};
+  }).filter(it => it.product_name && it.qty > 0);
 
-  function addItemRow() {
-    const row = document.createElement("div");
-    row.className = "row g-2 mb-2 align-items-center";
-    row.innerHTML = `
-      <div class="col-md-7">
-        <select class="form-select" name="product_id">
-          ${productOptionsHtml}
-        </select>
-      </div>
-      <div class="col-md-3">
-        <input class="form-control" name="qty" type="number" min="0" placeholder="Qtd">
-      </div>
-      <div class="col-md-2 d-grid">
-        <button type="button" class="btn btn-outline-danger" onclick="this.closest('.row').remove()">Remover</button>
-      </div>
-    `;
-    document.getElementById("itemsArea").appendChild(row);
+  if(items.length === 0){
+    alert("Adicione ao menos 1 item.");
+    return false;
   }
-
-  // começa com 3 linhas
-  addItemRow(); addItemRow(); addItemRow();
+  document.getElementById(hiddenId).value = JSON.stringify(items);
+  return true;
+}
+addRow();
 </script>
+
 {% endblock %}

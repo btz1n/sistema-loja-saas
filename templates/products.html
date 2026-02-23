@@ -1,51 +1,61 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-2">
-  <h3>Produtos</h3>
+
+<div class="topbar">
+  <h1>Produtos</h1>
 </div>
 
-<div class="card shadow-sm mb-3">
-  <div class="card-body">
-    <h5 class="mb-3">Adicionar produto</h5>
-    <form class="row g-2" method="post" action="/products/add">
-      <div class="col-md-4"><input class="form-control" name="name" placeholder="Nome" required></div>
-      <div class="col-md-2"><input class="form-control" name="sku" placeholder="SKU"></div>
-      <div class="col-md-2"><input class="form-control" name="price" type="number" step="0.01" placeholder="Preço"></div>
-      <div class="col-md-2"><input class="form-control" name="stock" type="number" placeholder="Estoque"></div>
-      <div class="col-md-2"><button class="btn btn-primary w-100">Adicionar</button></div>
+<div class="row">
+  <div class="col card">
+    <h1 style="font-size:16px; margin:0 0 10px 0;">Cadastrar produto</h1>
+    <form method="post" action="/products/create">
+      <label>Nome</label>
+      <input class="input" name="name" required>
+
+      <div class="row" style="margin-top:10px;">
+        <div class="col">
+          <label>Preço</label>
+          <input class="input" name="price" type="number" step="0.01" value="0">
+        </div>
+        <div class="col">
+          <label>Estoque</label>
+          <input class="input" name="stock" type="number" step="1" value="0">
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <button class="btn primary full" type="submit">Salvar</button>
+      </div>
     </form>
   </div>
-</div>
 
-<div class="card shadow-sm">
-  <div class="card-body">
-    <h5 class="mb-3">Lista</h5>
-    <div class="table-responsive">
-      <table class="table table-sm align-middle">
-        <thead>
-          <tr>
-            <th>ID</th><th>Nome</th><th>SKU</th><th>Preço</th><th>Estoque</th><th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-        {% for p in products %}
-          <tr>
-            <td>{{ p.id }}</td>
-            <td>{{ p.name }}</td>
-            <td>{{ p.sku }}</td>
-            <td>R$ {{ "%.2f"|format(p.price) }}</td>
-            <td>{{ p.stock }}</td>
-            <td>
-              <form class="d-inline" method="post" action="/products/{{p.id}}/delete">
-                <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Excluir?')">Excluir</button>
-              </form>
-            </td>
-          </tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <p class="small text-muted mb-0">Edição rápida: por enquanto, exclui e cria de novo (pra MVP). Depois eu adiciono modal de editar.</p>
+  <div class="col card" style="flex:2;">
+    <h1 style="font-size:16px; margin:0 0 10px 0;">Lista</h1>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Nome</th><th>Preço</th><th>Estoque</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for p in products %}
+        <tr>
+          <td>{{ p.name }}</td>
+          <td>R$ {{ "%.2f"|format(p.price) }}</td>
+          <td>
+            {% if p.stock <= 3 %}
+              <span class="badge warn">{{ p.stock }}</span>
+            {% else %}
+              <span class="badge ok">{{ p.stock }}</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="3" class="muted">Sem produtos cadastrados.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
+
 {% endblock %}
